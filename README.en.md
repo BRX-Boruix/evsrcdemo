@@ -1,41 +1,32 @@
 # evsrcdemo
 
-An **end-to-end acceptance program** for BORUIX, verifying that the regular event source component works on real hardware.
+A BORUIX acceptance test exercising the line-editing library's event source component on real hardware.
 
 [简体中文](README.md)
 
-## Why it is needed
+## What it tests
 
-[`evdemo`](https://github.com/BRX-Boruix/evdemo) is the **diagnostic form** — it deliberately bypasses the event source component and hand-writes the reading and parsing. So the component **itself** had only host-side unit tests and had never run on real hardware.
+The line-editing library has a standalone event source component that reads events from the device
+and feeds the editor. That component previously had only host unit tests; this program drives it on
+the real system:
 
-The system's input wiring needs that component, so it had to be verified first.
+- Opens `/devices/input/events` and pulls events through the event source
+- Decodes them into editor keys: submit, backspace, delete, arrows, completion, history prev/next
+- Prints each key, quits on `q`; Ctrl+C exits directly
 
-## Usage contract (learned the hard way — follow it)
+Output:
 
-These two are **real traps that were hit**. The first version of this program violated both, and on real hardware the symptom was "it opened successfully and then did nothing at all" — quite time-consuming to track down.
-
-### 1. `next_item()` is not the entry point
-
-With an empty buffer it **returns immediately** with "try again later" rather than fetching data. **Fetching is `refill()`'s job**.
-
-### 2. `refill()` returning "no new bytes" is not end of file
-
-It only means **no new data this round**, not that input has ended. The correct response is to **keep looping**, not to break out:
-
-```rust
-if refill() { continue; }
-yield_now();
-continue;      // never break
 ```
-
-**Never treat it as end of file and `break`** — the program would then exit silently, looking exactly like "nothing happened".
+[evsrcdemo] open ok; press keys (q quits)
+[evsrcdemo] SUBMIT]
+[evsrcdemo] BACKSPACE]
+[evsrcdemo] PASS
+```
 
 ## Exit codes
 
-| Exit code | Meaning |
-| --- | --- |
-| `0` | Everything passed |
-| Non-zero | Number of the first failing check |
+- `0` — normal exit
+- `1` — the event device could not be opened
 
 ## Building
 
@@ -43,21 +34,21 @@ continue;      // never break
 cargo build --release
 ```
 
-## Layout
+## Repository layout
 
 ```
 evsrcdemo/
-├── Cargo.toml    # package definition
+├── Cargo.toml    # package manifest
 ├── build.rs      # injects the linker script
-├── linker.ld     # user-space section layout
+├── linker.ld     # user-space segment layout
 └── src/
-    └── main.rs   # real-hardware acceptance for the event source component
+    └── main.rs   # event source loop and key printing
 ```
 
 ## Related projects
 
-- [`libline`](https://github.com/BRX-Boruix/libline) — provides the event source component
-- [`evdemo`](https://github.com/BRX-Boruix/evdemo) — the diagnostic form of the same chain
+- [`libline`](https://github.com/BRX-Boruix/libline) — the event source component under test
+- [`libsys`](https://github.com/BRX-Boruix/libsys) — the event device interface
 
 ## License
 

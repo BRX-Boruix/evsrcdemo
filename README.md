@@ -1,43 +1,31 @@
 # evsrcdemo
 
-BORUIX 的**端到端验收程序**：验证常规事件源组件在真机上可用。
+BORUIX 的验收程序：验证行编辑库的事件源组件在真机上的行为。
 
 [English](README.en.md)
 
-## 为什么需要它
+## 测什么
 
-[`evdemo`](https://github.com/BRX-Boruix/evdemo) 是**诊断形态**——它刻意绕开事件源组件，手写读取与解析。
-因此组件**本身**此前只有宿主侧单元测试，没有在真机上跑过。
+行编辑库有一个独立的事件源组件，负责从设备读取事件并喂给编辑器。此前该组件只有宿主机单元
+测试；本程序在真实系统上驱动它：
 
-而系统的输入接线要用到这个组件，所以必须先验证它。
+- 打开 `/devices/input/events`，经事件源逐批取事件
+- 解码为编辑器按键：提交、退格、删除、方向、补全、历史前后翻阅
+- 按键逐个打印，按 `q` 退出，Ctrl+C 直接退出
 
-## 用法契约（实测踩过，务必遵守）
+输出：
 
-下面两条是**真实踩过的坑**。本程序初版两条都违反了，真机表现为「打开成功但毫无反应」——
-排查起来相当费时。
-
-### 1. `next_item()` 不是入口
-
-缓冲为空时它会**立即返回**「稍后重试」，而不是去取数据。**取数由 `refill()` 负责**。
-
-### 2. `refill()` 返回"没有新字节"不是文件结束
-
-它只表示**本轮没有新数据**，不代表输入结束。正确的处理是**继续循环**，而不是跳出：
-
-```rust
-if refill() { continue; }
-yield_now();
-continue;      // 绝不 break
 ```
-
-**绝不能把它当成文件结束而 `break`**——那样程序会静默退出，看起来像"什么都没发生"。
+[evsrcdemo] open ok; press keys (q quits)
+[evsrcdemo] SUBMIT]
+[evsrcdemo] BACKSPACE]
+[evsrcdemo] PASS
+```
 
 ## 退出码
 
-| 退出码 | 含义 |
-| --- | --- |
-| `0` | 全部通过 |
-| 非零 | 首个失败项编号 |
+- `0`——正常退出
+- `1`——事件设备打不开
 
 ## 构建
 
@@ -53,13 +41,13 @@ evsrcdemo/
 ├── build.rs      # 注入链接脚本
 ├── linker.ld     # 用户态段布局
 └── src/
-    └── main.rs   # 事件源组件的真机验收
+    └── main.rs   # 事件源循环与按键打印
 ```
 
 ## 相关项目
 
-- [`libline`](https://github.com/BRX-Boruix/libline) —— 提供事件源组件
-- [`evdemo`](https://github.com/BRX-Boruix/evdemo) —— 同一条链的诊断形态
+- [`libline`](https://github.com/BRX-Boruix/libline) —— 被验收的事件源组件
+- [`libsys`](https://github.com/BRX-Boruix/libsys) —— 事件设备接口
 
 ## 许可
 
